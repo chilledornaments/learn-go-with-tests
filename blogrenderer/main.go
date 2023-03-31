@@ -6,6 +6,7 @@ import (
 	"github.com/gomarkdown/markdown/parser"
 	"html/template"
 	"io"
+	"strings"
 )
 
 var (
@@ -27,13 +28,37 @@ func NewPostRenderer() (*PostRenderer, error) {
 		return nil, err
 	}
 	extensions := parser.CommonExtensions | parser.AutoHeadingIDs
-	parser := parser.NewWithExtensions(extensions)
+	p := parser.NewWithExtensions(extensions)
 
-	return &PostRenderer{templ: templ, mdParser: parser}, nil
+	return &PostRenderer{templ: templ, mdParser: p}, nil
 }
 
 func (r *PostRenderer) Render(w io.Writer, p Post) error {
 	return r.templ.ExecuteTemplate(w, "0_blog.gohtml", newPostVM(p, r))
+}
+
+func (r *PostRenderer) RenderIndex(w io.Writer, posts []Post) error {
+	indexTemplate := `<ol>{{range .}}<li><a href="/post/{{.SanitisedTitle}}">{{.Title}}</a></li>{{end}}</ol>`
+
+	templ, err := template.New("index").Parse(indexTemplate)
+	if err != nil {
+		return err
+	}
+
+	if err := templ.Execute(w, posts); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p Post) SanitisedTitle() string {
+	return strings.ToLower(strings.Replace(p.Title, " ", "-", -1))
+}
+
+type PostViewModel struct {
+	Title, SanitisedTitle, Description, Body string
+	Tags                                     []string
 }
 
 type postViewModel struct {
